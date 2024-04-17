@@ -1,86 +1,87 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 
 def main():
-    # week1 = pd.read_csv("data/week1.csv")
-    # plays_data = pd.read_csv("data/plays.csv")
-    # players_data = pd.read_csv("data/players.csv")
-    # players_data['abbreviatedName'] = (players_data['displayName'].str[0] + "." + players_data['displayName'].str.split().str[-1])
-    # name_to_id_map = dict(zip(players_data['abbreviatedName'], players_data['nflId']))
+    inputs, labels = process_data()
+    print("inputs:\n", inputs.head())
+    print("labels:\n", labels.head())
 
-    # plays = week1.groupby(["gameId", "playId"])
-    
-    # first_game_id, first_play_id = list(plays.groups)[0]
-    # first_play = week1[(week1["gameId"] == first_game_id) & (week1["playId"] == first_play_id)]
-    # game_data = plays_data[plays_data["gameId"] == first_game_id]
-    # play_data = game_data[game_data["playId"] == first_play_id]
-
-    # animate_play(first_play, play_data, name_to_id_map)
-    process_single_play(1, 2021090900, 187)
-
-def process_single_play(week, game_id, play_id):
-    # plays = week.groupby(["gameId", "playId"])
-    # first_game_id, first_play_id = list(plays.groups)[0]
-
-
-    week = pd.read_csv(f"data/week{week}.csv")
+name_id_overrides = { 46093: "Dj.Moore", 53536: "Mi.Carter", 53541: "A.St", 46137: "Ju.Reid", 53514: "Am.Rodgers", 52458: "Ja.Johnson", 41712: "Da.Williams", 46097: "Te.Edmunds", 46105: "D.Leonard", 47964: "Jaq.Johnson", 46276: "E.St" }
+def process_data():
     plays_data = pd.read_csv("data/plays.csv")
     players_data = pd.read_csv("data/players.csv")
-    players_data['abbreviatedName'] = (players_data['displayName'].str[0] + "." + players_data['displayName'].str.split().str[-1])
-    name_to_id_map = dict(zip(players_data['abbreviatedName'], players_data['nflId']))
+    players_data['abbreviatedName'] = players_data['displayName'].str[0] + "." + players_data['displayName'].str.split().str[-1]
+    name_to_id_map = dict(zip(players_data['nflId'], players_data['abbreviatedName']))
+    name_to_id_map.update(name_id_overrides)
+    name_to_id_map = {v: k for k, v in name_to_id_map.items()} # flip keys and values
 
-    first_play = week[(week["gameId"] == game_id) & (week["playId"] == play_id)]
-    game_data = plays_data[plays_data["gameId"] == game_id]
-    play_data = game_data[game_data["playId"] == play_id]
+    all_inputs = []
+    all_labels = []
+    
+    for week in range(0, 8):
+        inputs, labels = process_week(week + 1, plays_data, name_to_id_map)
+        all_inputs.append(inputs)
+        all_labels.append(labels)
+    return pd.concat(all_inputs), pd.concat(all_labels)
 
-    animate_play(first_play, play_data, name_to_id_map)
+def process_week(week, plays_data, name_to_id_map):
+    week = pd.read_csv(f"data/week{week}.csv")
+    release_snapshots = week[week["event"] == "pass_forward"].groupby(["gameId", "playId"])
+    ids = release_snapshots.first().reset_index()[["gameId", "playId"]]
+
+    inputs = []
+    for name, group in release_snapshots:
+        combined_id = name[0] * 100000 + name[1]
+        relevant_fields = group.reset_index()[["x", "y", "s", "a", "o", "dir", "nflId"]]
+        flattened = flatten_tracking_data(relevant_fields)
+        if(not flattened.empty): 
+            flattened.index = [combined_id]
+            inputs.append(flattened)
+    inputs = pd.concat(inputs)
+    
+    labels = create_labels(ids, plays_data, name_to_id_map)
+
+    # remove errant pass_forward events or labels that don't have a corresponding pass_forward event
+    inputs = inputs[inputs.index.isin(labels.index)]
+    labels = labels[labels.index.isin(inputs.index)]
+    assert(labels.index.equals(inputs.index))
+
+    return inputs, labels
+
+def create_labels(ids, plays_data, name_to_id_map):
+    pass_plays = plays_data[(plays_data["passResult"] == "C") | (plays_data["passResult"] == "I") | (plays_data["passResult"] == "IN")]
+    plays = pass_plays.merge(ids, on=["gameId", "playId"])
+    
+    plays['offense'], plays['defense'], plays['interception_id'], plays['target_id'], plays['target_name'] = zip(*plays.apply(lambda row: extract_play_info(row, name_to_id_map), axis=1))
+    labels = plays[['offense', 'defense', 'interception_id', 'target_id', 'target_name']]
+    labels.index = plays['gameId'] * 100000 + plays['playId']
+    return labels
+
     
 def extract_play_info(play_data, name_to_id_map):
-    offense = play_data["possessionTeam"].values[0]
-    defense = play_data["defensiveTeam"].values[0]
+    offense = play_data["possessionTeam"]
+    defense = play_data["defensiveTeam"]
 
-    description = play_data["playDescription"].values[0]
+    description = play_data["playDescription"].split(" pass ")[1] # ignore anything before pass (e.g. fumbled snap)
+    # print(description)
     interception_split_description = description.split("INTERCEPTED by ")
     interception_name = "none" if (len(interception_split_description) < 2) else interception_split_description[1].split(" ")[0].strip(".")
     interception_id = -1 if interception_name == "none" else name_to_id_map[interception_name]
 
     target_split_description = description.split(" to ")
-    target_name = "none" if ((len(target_split_description) < 2) & (interception_name == "none")) else target_split_description[1].split(" ")[0].strip(".")
+    target_name = "none" if ((len(target_split_description) < 2) | (interception_name != "none")) else target_split_description[1].split(" ")[0].strip(".")
     target_id = -1 if target_name == "none" else name_to_id_map[target_name]
 
     return offense, defense, interception_id, target_id, target_name
 
-def animate_play(tracking_data, play_data, name_to_id_map):
-    frames = tracking_data['frameId']
-    offense, defense, interception_id, target_id, target_name = extract_play_info(play_data, name_to_id_map)
-    description = play_data["playDescription"].values[0]
+def flatten_tracking_data(tracking_data:pd.DataFrame) -> pd.DataFrame:
+    # some plays have 2 "pass_forward" events, which are annoying to de-duplicate so we'll just skip them
+    if(tracking_data.shape[0] != 23): return pd.DataFrame()
+    
+    flattened=tracking_data.stack().swaplevel()
+    flattened.index=flattened.index.map('{0[0]}_{0[1]}'.format) 
+    flattened = flattened.to_frame().T
 
-    # Create the figure and axis
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-
-    # Define the animation function
-    def animate(i):
-        frame_data = tracking_data[tracking_data['frameId'] == i]
-        football_data = frame_data[frame_data['team'] == 'football']
-        target_data = frame_data[frame_data['nflId'] == target_id]
-        off_data = frame_data[(frame_data['team'] == offense) & (frame_data['nflId'] != target_id)]
-        def_data = frame_data[(frame_data['team'] != offense) & (frame_data['team'] != 'football')]
-        ax.clear()
-        ax.set_xlim(0, 120)
-        ax.set_ylim(0, 53.3)
-        ax.scatter(football_data['x'], football_data['y'], c='brown', s=100)
-        ax.scatter(target_data['x'], target_data['y'], c='yellow', s=100)
-        ax.scatter(off_data['x'], off_data['y'], c='blue')
-        ax.scatter(def_data['x'], def_data['y'], c='red')
-        ax.set_title(f'{offense} vs {defense}, {description} (final target: {target_name}), Frame {i}')
-
-    # Create the animation
-    ani = animation.FuncAnimation(fig, animate, frames=frames, interval=100, repeat=False)
-
-    plt.show()
+    return flattened
 
 if __name__ == "__main__":
     main()
