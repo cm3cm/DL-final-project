@@ -16,7 +16,7 @@ def process_data():
 
     all_inputs = []
     all_labels = []
-    
+
     for week in range(0, 8):
         inputs, labels = process_week(week + 1, plays_data, name_to_id_map)
         all_inputs.append(inputs)
@@ -27,21 +27,25 @@ def process_week(week, plays_data, name_to_id_map):
     week = pd.read_csv(f"data/week{week}.csv")
     release_snapshots = week[week["event"] == "pass_forward"].groupby(["gameId", "playId"])
     ids = release_snapshots.first().reset_index()[["gameId", "playId"]]
+    labels = create_labels(ids, plays_data, name_to_id_map)
 
     inputs = []
     for name, group in release_snapshots:
         combined_id = name[0] * 100000 + name[1]
+        if(combined_id not in labels.index): continue
+
         relevant_fields = group.reset_index()[["x", "y", "s", "a", "o", "dir", "nflId"]]
-        flattened = flatten_tracking_data(relevant_fields)
+        metadata = plays_data[(plays_data["gameId"] == name[0]) & (plays_data["playId"] == name[1])][["down", "yardsToGo", "absoluteYardlineNumber", "pff_playAction"]].iloc[0]
+        flattened = flatten_tracking_data(relevant_fields, metadata)
+        
         if(not flattened.empty): 
             flattened.index = [combined_id]
             inputs.append(flattened)
     inputs = pd.concat(inputs)
     
-    labels = create_labels(ids, plays_data, name_to_id_map)
 
     # remove errant pass_forward events or labels that don't have a corresponding pass_forward event
-    inputs = inputs[inputs.index.isin(labels.index)]
+    # inputs = inputs[inputs.index.isin(labels.index)]
     labels = labels[labels.index.isin(inputs.index)]
     assert(labels.index.equals(inputs.index))
 
@@ -73,13 +77,16 @@ def extract_play_info(play_data, name_to_id_map):
 
     return offense, defense, interception_id, target_id, target_name
 
-def flatten_tracking_data(tracking_data:pd.DataFrame) -> pd.DataFrame:
+def flatten_tracking_data(tracking_data: pd.DataFrame, metadata: pd.Series) -> pd.DataFrame:
     # some plays have 2 "pass_forward" events, which are annoying to de-duplicate so we'll just skip them
     if(tracking_data.shape[0] != 23): return pd.DataFrame()
     
     flattened=tracking_data.stack().swaplevel()
     flattened.index=flattened.index.map('{0[0]}_{0[1]}'.format) 
     flattened = flattened.to_frame().T
+
+    metadata = metadata.to_frame().T.reset_index()
+    flattened = pd.concat([flattened, metadata], axis=1).drop("index", axis=1)
 
     return flattened
 
