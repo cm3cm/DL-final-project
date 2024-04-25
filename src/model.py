@@ -38,3 +38,11 @@ class model(tf.keras.Model):
         x = self.dropout2(x, training=training)
         x = self.dense3(x)
         return x
+    
+    def loss(self, y_pred, y_true):
+        if self.dense3.activation == 'softmax':
+            loss = tf.reduce_mean(tf.keras.losses.categorical_crossentropy(y_true, y_pred))
+
+        else: loss = tf.reduce_mean(tf.keras.losses.mean_squared_error(y_true, y_pred))
+
+        return loss
