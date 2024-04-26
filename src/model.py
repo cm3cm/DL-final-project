@@ -23,19 +23,21 @@ class model(tf.keras.Model):
     def __init__(self, activation_name):
         super(model, self).__init__()
         self.input_layer = tf.keras.layers.InputLayer(input_shape=(230,))
-        self.dense1 = tf.keras.layers.Dense(256)
+        self.dense1 = tf.keras.layers.Dense(256, kernel_initializer="he_normal")
         self.batch_norm1 = tf.keras.layers.BatchNormalization()
         self.dropout1 = tf.keras.layers.Dropout(0.5)
-        self.dense2 = tf.keras.layers.Dense(128)
+        self.dense2 = tf.keras.layers.Dense(128, kernel_initializer="he_normal")
         self.batch_norm2 = tf.keras.layers.BatchNormalization()
         self.dropout2 = tf.keras.layers.Dropout(0.5)
-        self.dense3 = tf.keras.layers.Dense(1, activation=activation_name)
+        self.dense3 = tf.keras.layers.Dense(
+            1, activation=activation_name, kernel_initializer="he_normal"
+        )
 
         self.activation = activation_name
 
     def call(self, inputs, training=False):
         x = self.input_layer(inputs)
-        x = self.dense1(inputs)
+        x = self.dense1(x)
         x = self.batch_norm1(x, training=training)
         x = tf.nn.relu(x)
         x = self.dropout1(x, training=training)
@@ -59,11 +61,21 @@ class model(tf.keras.Model):
 
 def get_data(split=0.8):
     inputs, labels = preprocessing.get_data()
-
-    assert len(inputs) == len(labels), "Input and label lengths do not match"
+    inputs = inputs.dropna()
+    labels = labels.dropna()
 
     inputs = np.asarray(inputs).astype(np.float32)
     labels = np.asarray(labels).astype(np.float32)
+
+    # Normalize:
+    input_mean = np.mean(inputs, axis=0)
+    input_std = np.std(inputs, axis=0)
+    inputs = (inputs - input_mean) / input_std
+
+    # Shuffle:
+    indices = np.random.permutation(len(inputs))
+    inputs = tf.gather(inputs, indices)
+    labels = tf.gather(labels, indices)
 
     split_idx = int(len(inputs) * split)
 
@@ -80,4 +92,4 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.legacy.Adam()
     model.compile(optimizer=optimizer, loss=model.loss)
 
-    model.fit(X_train, y_train, epochs=10, batch_size=32)
+    model.fit(X_train, y_train, epochs=5, batch_size=128)
