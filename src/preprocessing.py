@@ -63,7 +63,9 @@ def process_week(week, plays_data, name_to_id_map):
         group["sy"] = group["s"] * np.sin(group["dir"])
         group["ax"] = group["a"] * np.cos(group["dir"])
         group["ay"] = group["a"] * np.sin(group["dir"])
-        relevant_fields = group.reset_index()[["x", "y", "sx", "sy", "ax", "ay", "o", "dir", "nflId"]]
+        relevant_fields = group.reset_index()[
+            ["x", "y", "sx", "sy", "ax", "ay", "o", "dir", "nflId"]
+        ]
         metadata = plays_data[
             (plays_data["gameId"] == name[0]) & (plays_data["playId"] == name[1])
         ][["down", "yardsToGo", "absoluteYardlineNumber", "pff_playAction"]].iloc[0]
