@@ -1,4 +1,7 @@
+import preprocessing
+
 import tensorflow as tf
+import numpy as np
 
 
 class model(tf.keras.Model):
@@ -38,11 +41,40 @@ class model(tf.keras.Model):
         x = self.dropout2(x, training=training)
         x = self.dense3(x)
         return x
-    
-    def loss(self, y_pred, y_true):
-        if self.dense3.activation == 'softmax':
-            loss = tf.reduce_mean(tf.keras.losses.categorical_crossentropy(y_true, y_pred))
 
-        else: loss = tf.reduce_mean(tf.keras.losses.mean_squared_error(y_true, y_pred))
+    def loss(self, y_pred, y_true):
+        if self.dense3.activation == "softmax":
+            loss = tf.reduce_mean(
+                tf.keras.losses.categorical_crossentropy(y_true, y_pred)
+            )
+
+        else:
+            loss = tf.reduce_mean(tf.keras.losses.mean_squared_error(y_true, y_pred))
 
         return loss
+
+
+def get_data(split=0.8):
+    inputs, labels = preprocessing.process_data()
+
+    assert len(inputs) == len(labels), "Input and label lengths do not match"
+
+    inputs = np.asarray(inputs).astype(np.float32)
+    labels = np.asarray(labels).astype(np.float32)
+
+    split_idx = int(len(inputs) * split)
+
+    X_train, X_val = inputs[:split_idx], inputs[split_idx:]
+    y_train, y_val = labels[:split_idx], labels[split_idx:]
+    return X_train, X_val, y_train, y_val
+
+
+if __name__ == "__main__":
+    X_train, X_val, y_train, y_val = get_data()
+
+    model = model("softmax")
+
+    optimizer = tf.keras.optimizers.legacy.Adam()
+    model.compile(optimizer=optimizer, loss=model.loss)
+
+    model.fit(X_train, y_train, epochs=10, batch_size=32)
