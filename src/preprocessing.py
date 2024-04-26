@@ -6,6 +6,7 @@ def main():
     inputs, labels = process_data()
     print("inputs:\n", inputs.head())
     print("labels:\n", labels.head())
+    save_data(inputs, labels)
 
 
 name_id_overrides = {
@@ -22,6 +23,22 @@ name_id_overrides = {
     46276: "E.St",
 }
 
+def get_data():
+    if pd.read_csv("data/inputs.csv").shape[0] > 0 and pd.read_csv("data/labels.csv").shape[0] > 0:
+        return load_data()
+    else:
+        inputs, labels = process_data()
+        save_data(inputs, labels)
+        return inputs, labels
+
+def save_data(inputs, labels):
+    inputs.to_csv("data/inputs.csv")
+    labels.to_csv("data/labels.csv")
+
+def load_data():
+    inputs = pd.read_csv("data/inputs.csv")
+    labels = pd.read_csv("data/labels.csv")
+    return inputs, labels
 
 def process_data():
     plays_data = pd.read_csv("data/plays.csv")

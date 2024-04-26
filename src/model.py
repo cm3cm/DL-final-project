@@ -55,7 +55,7 @@ class model(tf.keras.Model):
 
 
 def get_data(split=0.8):
-    inputs, labels = preprocessing.process_data()
+    inputs, labels = preprocessing.get_data()
 
     assert len(inputs) == len(labels), "Input and label lengths do not match"
 
