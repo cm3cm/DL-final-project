@@ -42,7 +42,9 @@ def process_data():
         inputs, labels = process_week(week + 1, plays_data, name_to_id_map)
         all_inputs.append(inputs)
         all_labels.append(labels)
-    return pd.concat(all_inputs), pd.concat(all_labels)
+    inputs, labels = pd.concat(all_inputs), pd.concat(all_labels)
+    labels = labels.drop(columns=["offense", "defense", "target_name"])
+    return inputs, labels
 
 
 def process_week(week, plays_data, name_to_id_map):
