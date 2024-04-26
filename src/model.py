@@ -22,6 +22,7 @@ class model(tf.keras.Model):
 
     def __init__(self, activation_name):
         super(model, self).__init__()
+        self.input_layer = tf.keras.layers.InputLayer(input_shape=(230,))
         self.dense1 = tf.keras.layers.Dense(256)
         self.batch_norm1 = tf.keras.layers.BatchNormalization()
         self.dropout1 = tf.keras.layers.Dropout(0.5)
@@ -30,7 +31,10 @@ class model(tf.keras.Model):
         self.dropout2 = tf.keras.layers.Dropout(0.5)
         self.dense3 = tf.keras.layers.Dense(1, activation=activation_name)
 
+        self.activation = activation_name
+
     def call(self, inputs, training=False):
+        x = self.input_layer(inputs)
         x = self.dense1(inputs)
         x = self.batch_norm1(x, training=training)
         x = tf.nn.relu(x)
@@ -43,11 +47,10 @@ class model(tf.keras.Model):
         return x
 
     def loss(self, y_pred, y_true):
-        if self.dense3.activation == "softmax":
+        if self.activation == "softmax":
             loss = tf.reduce_mean(
                 tf.keras.losses.categorical_crossentropy(y_true, y_pred)
             )
-
         else:
             loss = tf.reduce_mean(tf.keras.losses.mean_squared_error(y_true, y_pred))
 
@@ -72,7 +75,7 @@ def get_data(split=0.8):
 if __name__ == "__main__":
     X_train, X_val, y_train, y_val = get_data()
 
-    model = model("softmax")
+    model = model("sigmoid")
 
     optimizer = tf.keras.optimizers.legacy.Adam()
     model.compile(optimizer=optimizer, loss=model.loss)
