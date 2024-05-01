@@ -30,7 +30,7 @@ class model(tf.keras.Model):
         self.batch_norm2 = tf.keras.layers.BatchNormalization()
         self.dropout2 = tf.keras.layers.Dropout(0.5)
         self.dense3 = tf.keras.layers.Dense(
-            1, activation=activation_name, kernel_initializer="he_normal"
+            5, activation=activation_name, kernel_initializer="he_normal"
         )
 
         self.activation = activation_name
@@ -48,7 +48,9 @@ class model(tf.keras.Model):
         x = self.dense3(x)
         return x
 
-    def loss(self, y_pred, y_true):
+    def loss(self, y_true: tf.Tensor, y_pred: tf.Tensor):
+        # tf.print("y_pred:", y_pred)
+        # tf.print("y_true:", y_true)
         if self.activation == "softmax":
             loss = tf.reduce_mean(
                 tf.keras.losses.categorical_crossentropy(y_true, y_pred)
@@ -64,8 +66,12 @@ def get_data(split=0.8):
     inputs = inputs.dropna()
     labels = labels.dropna()
 
+    print(labels.head())
+    one_hot_labels = labels.apply(lambda x: [1 if x[f"rec{i}"] == x['target_id'] else 0 for i in range(5)], axis=1)
+    print(one_hot_labels.head())
+    one_hot_labels = one_hot_labels.to_list()
     inputs = np.asarray(inputs).astype(np.float32)
-    labels = np.asarray(labels).astype(np.float32)
+    labels = np.asarray(one_hot_labels).astype(np.float32)
 
     # Normalize:
     input_mean = np.mean(inputs, axis=0)
@@ -86,10 +92,12 @@ def get_data(split=0.8):
 
 if __name__ == "__main__":
     X_train, X_val, y_train, y_val = get_data()
+    print("y_train:", y_train)
 
-    model = model("sigmoid")
+    model = model("softmax")
 
     optimizer = tf.keras.optimizers.legacy.Adam()
     model.compile(optimizer=optimizer, loss=model.loss)
 
     model.fit(X_train, y_train, epochs=5, batch_size=128)
+    model.evaluate(X_val, y_val)
