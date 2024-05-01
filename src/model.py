@@ -84,19 +84,12 @@ def get_data(split=0.8):
     labels = tf.gather(labels, indices)
 
     split_idx = int(len(inputs) * split)
-    print("split_idx:", split_idx)
+    print(f"split_idx: {split_idx}")
 
     X_train, X_val = inputs[:split_idx], inputs[split_idx:]
     y_train, y_val = labels[:split_idx], labels[split_idx:]
     print(
-        "X_train:",
-        X_train.shape,
-        "y_train:",
-        y_train.shape,
-        "X_val:",
-        X_val.shape,
-        "y_val:",
-        y_val.shape,
+        f"X_train: {X_train.shape}, y_train: {y_train.shape}, X_val: {X_val.shape}, y_val: {y_val.shape}"
     )
 
     return X_train, X_val, y_train, y_val
@@ -105,14 +98,7 @@ def get_data(split=0.8):
 if __name__ == "__main__":
     X_train, X_val, y_train, y_val = get_data()
     print(
-        "X_train:",
-        X_train.shape,
-        "y_train:",
-        y_train.shape,
-        "X_val:",
-        X_val.shape,
-        "y_val:",
-        y_val.shape,
+        f"X_train: {X_train.shape}, y_train: {y_train.shape}, X_val: {X_val.shape}, y_val: {y_val.shape}"
     )
 
     model = model("softmax")
