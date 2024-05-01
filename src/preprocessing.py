@@ -23,22 +23,29 @@ name_id_overrides = {
     46276: "E.St",
 }
 
+
 def get_data():
-    if pd.read_csv("data/inputs.csv").shape[0] > 0 and pd.read_csv("data/labels.csv").shape[0] > 0:
+    if (
+        pd.read_csv("data/inputs.csv").shape[0] > 0
+        and pd.read_csv("data/labels.csv").shape[0] > 0
+    ):
         return load_data()
     else:
         inputs, labels = process_data()
         save_data(inputs, labels)
         return inputs, labels
 
+
 def save_data(inputs, labels):
     inputs.to_csv("data/inputs.csv")
     labels.to_csv("data/labels.csv")
+
 
 def load_data():
     inputs = pd.read_csv("data/inputs.csv")
     labels = pd.read_csv("data/labels.csv")
     return inputs, labels
+
 
 def process_data():
     plays_data = pd.read_csv("data/plays.csv")
@@ -58,7 +65,9 @@ def process_data():
     all_labels = []
 
     for week in range(0, 8):
-        inputs, labels = process_week(week + 1, plays_data, name_to_id_map, id_to_pos_map)
+        inputs, labels = process_week(
+            week + 1, plays_data, name_to_id_map, id_to_pos_map
+        )
         all_inputs.append(inputs)
         all_labels.append(labels)
     inputs, labels = pd.concat(all_inputs), pd.concat(all_labels)
@@ -91,7 +100,9 @@ def process_week(week, plays_data, name_to_id_map, id_to_pos_map):
         metadata = plays_data[
             (plays_data["gameId"] == name[0]) & (plays_data["playId"] == name[1])
         ][["down", "yardsToGo", "absoluteYardlineNumber", "pff_playAction"]].iloc[0]
-        flattened, receiver_ids = flatten_tracking_data(relevant_fields, metadata, id_to_pos_map, combined_id)
+        flattened, receiver_ids = flatten_tracking_data(
+            relevant_fields, metadata, id_to_pos_map, combined_id
+        )
 
         if not flattened.empty:
             flattened.index = [combined_id]
@@ -165,20 +176,39 @@ def extract_play_info(play_data, name_to_id_map):
 
 
 def flatten_tracking_data(
-    tracking_data: pd.DataFrame, metadata: pd.Series, id_to_pos_map: dict, combined_id: int
+    tracking_data: pd.DataFrame,
+    metadata: pd.Series,
+    id_to_pos_map: dict,
+    combined_id: int,
 ) -> pd.DataFrame:
     # some plays have 2 "pass_forward" events, which are annoying to de-duplicate so we'll just skip them
     if tracking_data.shape[0] != 23:
         return pd.DataFrame(), pd.DataFrame()
 
-    qb_data = tracking_data[tracking_data['nflId'].map(id_to_pos_map) == 'QB'].reset_index().drop("index", axis=1)
-    qb_data = qb_data.drop(columns=['o'])
+    qb_data = (
+        tracking_data[tracking_data["nflId"].map(id_to_pos_map) == "QB"]
+        .reset_index()
+        .drop("index", axis=1)
+    )
+    qb_data = qb_data.drop(columns=["o"])
     # print(qb_data.head())
-    
-    receiver_data = tracking_data[tracking_data['nflId'].map(id_to_pos_map).isin(['WR', 'TE', 'RB'])].reset_index().drop("index", axis=1)
+
+    receiver_data = (
+        tracking_data[
+            tracking_data["nflId"].map(id_to_pos_map).isin(["WR", "TE", "RB"])
+        ]
+        .reset_index()
+        .drop("index", axis=1)
+    )
     # print(receiver_data.head())
 
-    remaining_data = tracking_data[~tracking_data['nflId'].map(id_to_pos_map).isin(['QB', 'WR', 'TE', 'RB'])].reset_index().drop("index", axis=1)
+    remaining_data = (
+        tracking_data[
+            ~tracking_data["nflId"].map(id_to_pos_map).isin(["QB", "WR", "TE", "RB"])
+        ]
+        .reset_index()
+        .drop("index", axis=1)
+    )
 
     if qb_data.shape[0] != 1 or receiver_data.shape[0] != 5:
         return pd.DataFrame(), pd.DataFrame()
@@ -193,11 +223,10 @@ def flatten_tracking_data(
     flattened_qb.index = flattened_qb.index.map("{0[0]}_qb{0[1]}".format)
     flattened_qb = flattened_qb.to_frame().T
 
-
     flattened_receivers = receiver_data.stack().swaplevel()
     flattened_receivers.index = flattened_receivers.index.map("{0[0]}_rec{0[1]}".format)
     flattened_receivers = flattened_receivers.to_frame().T
-    
+
     receiver_ids = receiver_data[["nflId"]].stack().swaplevel()
     receiver_ids.index = receiver_ids.index.map("rec{0[1]}".format)
     receiver_ids = receiver_ids.to_frame().T
@@ -212,7 +241,9 @@ def flatten_tracking_data(
 
     metadata = metadata.to_frame().T.reset_index()
     # flattened = pd.concat([flattened, metadata], axis=1).drop("index", axis=1)
-    flattened = pd.concat([flattened_qb, flattened_receivers, flattened_remaining, metadata], axis=1).drop("index", axis=1)
+    flattened = pd.concat(
+        [flattened_qb, flattened_receivers, flattened_remaining, metadata], axis=1
+    ).drop("index", axis=1)
 
     return flattened, receiver_ids
 
