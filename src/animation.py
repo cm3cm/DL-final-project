@@ -5,7 +5,7 @@ from preprocessing import extract_play_info
 
 
 def main():
-    animate_single_play(1, 2021091201, 3709)
+    animate_single_play(1, 2021091211, 76)
 
 
 def animate_single_play(week, game_id, play_id):
