@@ -66,9 +66,7 @@ def get_data(split=0.8):
     inputs = inputs.dropna()
     labels = labels.dropna()
 
-    print(labels.head())
     one_hot_labels = labels.apply(lambda x: [1 if x[f"rec{i}"] == x['target_id'] else 0 for i in range(5)], axis=1)
-    print(one_hot_labels.head())
     one_hot_labels = one_hot_labels.to_list()
     inputs = np.asarray(inputs).astype(np.float32)
     labels = np.asarray(one_hot_labels).astype(np.float32)
@@ -84,20 +82,23 @@ def get_data(split=0.8):
     labels = tf.gather(labels, indices)
 
     split_idx = int(len(inputs) * split)
+    print("split_idx:", split_idx)
 
     X_train, X_val = inputs[:split_idx], inputs[split_idx:]
     y_train, y_val = labels[:split_idx], labels[split_idx:]
+    print("X_train:", X_train.shape, "y_train:", y_train.shape, "X_val:", X_val.shape, "y_val:", y_val.shape)
+
     return X_train, X_val, y_train, y_val
 
 
 if __name__ == "__main__":
     X_train, X_val, y_train, y_val = get_data()
-    print("y_train:", y_train)
+    print("X_train:", X_train.shape, "y_train:", y_train.shape, "X_val:", X_val.shape, "y_val:", y_val.shape)
 
     model = model("softmax")
 
     optimizer = tf.keras.optimizers.legacy.Adam()
-    model.compile(optimizer=optimizer, loss=model.loss)
+    model.compile(optimizer=optimizer, loss=model.loss, metrics=["accuracy"])
 
     model.fit(X_train, y_train, epochs=5, batch_size=128)
     model.evaluate(X_val, y_val)
