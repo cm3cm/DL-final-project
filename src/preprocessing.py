@@ -94,9 +94,11 @@ def process_week(week, plays_data, name_to_id_map, id_to_pos_map):
         group["sy"] = group["s"] * np.sin(group["dir"])
         group["ax"] = group["a"] * np.cos(group["dir"])
         group["ay"] = group["a"] * np.sin(group["dir"])
+        group = normalize_direction(group)
         relevant_fields = group.reset_index()[
-            ["x", "y", "sx", "sy", "ax", "ay", "o", "dir", "nflId"]
+            ["x", "y", "sx", "sy", "ax", "ay", "o", "nflId", "team"]
         ]
+
         metadata = plays_data[
             (plays_data["gameId"] == name[0]) & (plays_data["playId"] == name[1])
         ][["down", "yardsToGo", "absoluteYardlineNumber", "pff_playAction"]].iloc[0]
@@ -144,6 +146,7 @@ def create_labels(ids, plays_data, name_to_id_map):
         ["offense", "defense", "interception_id", "target_id", "target_name"]
     ]
     labels.index = plays["gameId"] * 100000 + plays["playId"]
+    labels = labels[labels["target_id"] != -1]
     return labels
 
 
@@ -209,8 +212,24 @@ def flatten_tracking_data(
         .reset_index()
         .drop("index", axis=1)
     )
+    remaining_offense = remaining_data[
+        remaining_data["team"] == qb_data["team"].iloc[0]
+    ]
+    remaining_defense = remaining_data[
+        remaining_data["team"] != qb_data["team"].iloc[0]
+    ]
+    remaining_defense = (
+        remaining_defense[remaining_defense["team"] != "football"]
+        .reset_index()
+        .drop("index", axis=1)
+    )
+    # assert(remaining_defense.shape[0] == 11)
 
-    if qb_data.shape[0] != 1 or receiver_data.shape[0] != 5:
+    if (
+        qb_data.shape[0] != 1
+        or receiver_data.shape[0] != 5
+        or remaining_defense.shape[0] != 11
+    ):
         return pd.DataFrame(), pd.DataFrame()
     # assert(qb_data.shape[0] == 1), "Expected 1 QB, got " + str(qb_data.shape[0]) + " for play " + str(combined_id)
     # assert receiver_data.shape[0] == 5, "Expected 5 receivers, got " + str(receiver_data.shape[0]) + " for play " + str(combined_id)
@@ -218,6 +237,14 @@ def flatten_tracking_data(
     # flattened = tracking_data.stack().swaplevel()
     # flattened.index = flattened.index.map("{0[0]}_{0[1]}".format)
     # flattened = flattened.to_frame().T
+
+    receiver_ids = receiver_data[["nflId"]].stack().swaplevel()
+    receiver_ids.index = receiver_ids.index.map("rec{0[1]}".format)
+    receiver_ids = receiver_ids.to_frame().T
+
+    qb_data.drop(columns=["team", "nflId"], inplace=True)
+    receiver_data.drop(columns=["team", "nflId"], inplace=True)
+    remaining_defense.drop(columns=["team", "nflId"], inplace=True)
 
     flattened_qb = qb_data.stack().swaplevel()
     flattened_qb.index = flattened_qb.index.map("{0[0]}_qb{0[1]}".format)
@@ -227,12 +254,10 @@ def flatten_tracking_data(
     flattened_receivers.index = flattened_receivers.index.map("{0[0]}_rec{0[1]}".format)
     flattened_receivers = flattened_receivers.to_frame().T
 
-    receiver_ids = receiver_data[["nflId"]].stack().swaplevel()
-    receiver_ids.index = receiver_ids.index.map("rec{0[1]}".format)
-    receiver_ids = receiver_ids.to_frame().T
-
-    flattened_remaining = remaining_data.stack().swaplevel()
-    flattened_remaining.index = flattened_remaining.index.map("{0[0]}_o{0[1]}".format)
+    # flattened_remaining = remaining_data.stack().swaplevel()
+    flattened_remaining = remaining_defense.stack().swaplevel()
+    # flattened_remaining.index = flattened_remaining.index.map("{0[0]}_o{0[1]}".format)
+    flattened_remaining.index = flattened_remaining.index.map("{0[0]}_def{0[1]}".format)
     flattened_remaining = flattened_remaining.to_frame().T
 
     # print(flattened_qb.head())
@@ -246,6 +271,21 @@ def flatten_tracking_data(
     ).drop("index", axis=1)
 
     return flattened, receiver_ids
+
+
+def normalize_direction(tracking_data: pd.DataFrame):
+    if tracking_data["playDirection"].iloc[0] == "right":
+        return tracking_data
+
+    tracking_data["x"] = 120 - tracking_data["x"]
+    tracking_data["y"] = 53.3 - tracking_data["y"]
+    tracking_data["sx"] = -tracking_data["sx"]
+    tracking_data["sy"] = -tracking_data["sy"]
+    tracking_data["ax"] = -tracking_data["ax"]
+    tracking_data["ay"] = -tracking_data["ay"]
+    # tracking_data["dir"] = (tracking_data["dir"] + np.pi) % (2 * np.pi)
+    tracking_data["o"] = (tracking_data["o"] + np.pi) % (2 * np.pi)
+    return tracking_data
 
 
 if __name__ == "__main__":
