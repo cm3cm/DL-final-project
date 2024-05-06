@@ -5,7 +5,7 @@ from preprocessing import extract_play_info
 
 
 def main():
-    animate_single_play(1, 2021091211, 76)
+    animate_single_play(1, 2021091203, 2063)
 
 
 def animate_single_play(week, game_id, play_id):
@@ -27,6 +27,7 @@ def animate_single_play(week, game_id, play_id):
 
 
 def animate_play(tracking_data, play_data, name_to_id_map):
+    tracking_data = tracking_data[tracking_data["event"] == "pass_forward"]
     frames = tracking_data["frameId"]
     offense, defense, interception_id, target_id, target_name = extract_play_info(
         play_data, name_to_id_map
@@ -57,7 +58,8 @@ def animate_play(tracking_data, play_data, name_to_id_map):
         ax.scatter(off_data["x"], off_data["y"], c="blue")
         ax.scatter(def_data["x"], def_data["y"], c="red")
         ax.set_title(
-            f"{offense} vs {defense}, {description} (final target: {target_name}), Frame {i}"
+            # f"{offense} vs {defense}, {description} (final target: {target_name}), Frame {i}"
+            f"{offense} vs {defense}, {description}, Frame {i}"
         )
 
     # Create the animation

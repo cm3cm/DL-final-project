@@ -99,18 +99,30 @@ def process_week(week, plays_data, name_to_id_map, id_to_pos_map):
             ["x", "y", "sx", "sy", "ax", "ay", "o", "nflId", "team"]
         ]
 
+        # mirrored = relevant_fields.copy()
+        # mirrored["x"] = 120 - mirrored["x"]
+        # mirrored["sx"] = -mirrored["sx"]
+        # mirrored["ax"] = -mirrored["ax"]
+        # mirrored["o"] = (mirrored["o"] + np.pi) % (2 * np.pi)
+
         metadata = plays_data[
             (plays_data["gameId"] == name[0]) & (plays_data["playId"] == name[1])
         ][["down", "yardsToGo", "absoluteYardlineNumber", "pff_playAction"]].iloc[0]
         flattened, receiver_ids = flatten_tracking_data(
             relevant_fields, metadata, id_to_pos_map, combined_id
         )
+        # flattened_mirrored, receiver_ids_mirrored = flatten_tracking_data(
+        #     mirrored, metadata, id_to_pos_map, combined_id
+        # )
 
         if not flattened.empty:
             flattened.index = [combined_id]
+            # flattened_mirrored.index = [combined_id]
             receiver_ids.index = [combined_id]
             inputs.append(flattened)
+            # inputs.append(flattened_mirrored)
             receiver_labels.append(receiver_ids)
+            # receiver_labels.append(receiver_ids_mirrored)
 
     inputs = pd.concat(inputs)
     receiver_labels = pd.concat(receiver_labels)
@@ -205,6 +217,9 @@ def flatten_tracking_data(
     )
     receiver_data["rel_x"] = receiver_data["x"] - qb_data["x"].values[0]
     receiver_data["rel_y"] = receiver_data["y"] - qb_data["y"].values[0]
+    receiver_data["position"] = (
+        receiver_data["nflId"].map(id_to_pos_map).map({"WR": 0, "TE": 1, "RB": 2})
+    )
     receiver_data = receiver_data.sort_values("y").reset_index(drop=True)
     # print(receiver_data.head())
 
