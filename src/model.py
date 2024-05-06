@@ -51,6 +51,7 @@ class model(tf.keras.Model):
     def loss(self, y_true: tf.Tensor, y_pred: tf.Tensor):
         # tf.print("y_pred:", y_pred)
         # tf.print("y_true:", y_true)
+        assert y_true.shape == y_pred.shape
         if self.activation == "softmax":
             loss = tf.reduce_mean(
                 tf.keras.losses.categorical_crossentropy(y_true, y_pred)
@@ -63,7 +64,7 @@ class model(tf.keras.Model):
 
 def get_data(split=0.8):
     inputs, labels = preprocessing.get_data()
-    inputs = inputs.dropna()
+    inputs = inputs.fillna(0)
     labels = labels.dropna()
 
     one_hot_labels = labels.apply(
@@ -104,7 +105,9 @@ if __name__ == "__main__":
     model = model("softmax")
 
     optimizer = tf.keras.optimizers.legacy.Adam()
-    model.compile(optimizer=optimizer, loss=model.loss, metrics=["accuracy"])
+    model.compile(
+        optimizer=optimizer, loss=model.loss, metrics=["categorical_accuracy"]
+    )
 
-    model.fit(X_train, y_train, epochs=5, batch_size=128)
+    model.fit(X_train, y_train, epochs=10, batch_size=128)
     model.evaluate(X_val, y_val)
