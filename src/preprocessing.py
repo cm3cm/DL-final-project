@@ -193,7 +193,7 @@ def flatten_tracking_data(
         .reset_index()
         .drop("index", axis=1)
     )
-    qb_data = qb_data.drop(columns=["o"])
+    # qb_data = qb_data.drop(columns=["o"])
     # print(qb_data.head())
 
     receiver_data = (
@@ -203,6 +203,9 @@ def flatten_tracking_data(
         .reset_index()
         .drop("index", axis=1)
     )
+    receiver_data["rel_x"] = receiver_data["x"] - qb_data["x"].values[0]
+    receiver_data["rel_y"] = receiver_data["y"] - qb_data["y"].values[0]
+    receiver_data = receiver_data.sort_values("y").reset_index(drop=True)
     # print(receiver_data.head())
 
     remaining_data = (
@@ -225,6 +228,34 @@ def flatten_tracking_data(
     )
     # assert(remaining_defense.shape[0] == 11)
 
+    def get_closest_defenders(receiver_data, remaining_defense):
+        distances = np.sqrt(
+            (receiver_data["x"].values[:, np.newaxis] - remaining_defense["x"].values)
+            ** 2
+            + (receiver_data["y"].values[:, np.newaxis] - remaining_defense["y"].values)
+            ** 2
+        )
+        closest_defenders_indices = np.argsort(distances, axis=1)[:, :2]
+        closest_defenders = remaining_defense.iloc[
+            closest_defenders_indices.flatten()
+        ].reset_index(drop=True)
+
+        # Calculate relative x and y positions
+        closest_defenders["rel_x"] = closest_defenders["x"] - receiver_data[
+            "x"
+        ].values.repeat(2)
+        closest_defenders["rel_y"] = closest_defenders["y"] - receiver_data[
+            "y"
+        ].values.repeat(2)
+
+        return closest_defenders.groupby(np.repeat(receiver_data.index, 2)).apply(
+            lambda x: x.reset_index(drop=True)
+        )
+
+    closest_defenders = get_closest_defenders(receiver_data, remaining_defense)
+    # print(closest_defenders)
+    # assert False
+
     if (
         qb_data.shape[0] != 1
         or receiver_data.shape[0] != 5
@@ -245,6 +276,7 @@ def flatten_tracking_data(
     qb_data.drop(columns=["team", "nflId"], inplace=True)
     receiver_data.drop(columns=["team", "nflId"], inplace=True)
     remaining_defense.drop(columns=["team", "nflId"], inplace=True)
+    closest_defenders.drop(columns=["team", "nflId"], inplace=True)
 
     flattened_qb = qb_data.stack().swaplevel()
     flattened_qb.index = flattened_qb.index.map("{0[0]}_qb{0[1]}".format)
@@ -253,6 +285,19 @@ def flatten_tracking_data(
     flattened_receivers = receiver_data.stack().swaplevel()
     flattened_receivers.index = flattened_receivers.index.map("{0[0]}_rec{0[1]}".format)
     flattened_receivers = flattened_receivers.to_frame().T
+
+    flattened_closest_defenders = closest_defenders.stack().swaplevel()
+    flattened_closest_defenders.index = flattened_closest_defenders.index.map(
+        "{0[1]}_rec{0[0]}_def{0[2]}".format
+    )
+    flattened_closest_defenders = flattened_closest_defenders.to_frame().T
+
+    # print(flattened_receivers)
+    # print(flattened_closest_defenders.columns.to_series().to_string())
+    # assert False
+    # interleaved_data = pd.concat(
+    #     [flattened_receivers, flattened_closest_defenders], axis=1
+    # )
 
     # flattened_remaining = remaining_data.stack().swaplevel()
     flattened_remaining = remaining_defense.stack().swaplevel()
@@ -267,7 +312,8 @@ def flatten_tracking_data(
     metadata = metadata.to_frame().T.reset_index()
     # flattened = pd.concat([flattened, metadata], axis=1).drop("index", axis=1)
     flattened = pd.concat(
-        [flattened_qb, flattened_receivers, flattened_remaining, metadata], axis=1
+        [flattened_qb, flattened_receivers, flattened_closest_defenders, metadata],
+        axis=1,
     ).drop("index", axis=1)
 
     return flattened, receiver_ids
