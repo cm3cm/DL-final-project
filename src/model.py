@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 
 
-class model(tf.keras.Model):
+class Model(tf.keras.Model):
     """
     The general model consists of a four-layer network
     as depicted in figure 2:
@@ -21,7 +21,7 @@ class model(tf.keras.Model):
     """
 
     def __init__(self, activation_name):
-        super(model, self).__init__()
+        super(Model, self).__init__()
         self.input_layer = tf.keras.layers.InputLayer(input_shape=(230,))
         self.dense1 = tf.keras.layers.Dense(256, kernel_initializer="he_normal")
         self.batch_norm1 = tf.keras.layers.BatchNormalization()
@@ -102,7 +102,7 @@ if __name__ == "__main__":
         f"X_train: {X_train.shape}, y_train: {y_train.shape}, X_val: {X_val.shape}, y_val: {y_val.shape}"
     )
 
-    model = model("softmax")
+    model = Model("softmax")
 
     optimizer = tf.keras.optimizers.legacy.Adam()
     model.compile(
