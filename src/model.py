@@ -23,14 +23,25 @@ class Model(tf.keras.Model):
     def __init__(self, activation_name):
         super(Model, self).__init__()
         self.input_layer = tf.keras.layers.InputLayer(input_shape=(230,))
-        self.dense1 = tf.keras.layers.Dense(256, kernel_initializer="he_normal")
+        self.dense1 = tf.keras.layers.Dense(
+            256, kernel_initializer=tf.keras.initializers.VarianceScaling()
+        )
         self.batch_norm1 = tf.keras.layers.BatchNormalization()
-        self.dropout1 = tf.keras.layers.Dropout(0.5)
-        self.dense2 = tf.keras.layers.Dense(128, kernel_initializer="he_normal")
+        self.dropout1 = tf.keras.layers.Dropout(0.3)
+        self.dense2 = tf.keras.layers.Dense(
+            128,
+            kernel_initializer=tf.keras.initializers.VarianceScaling(
+                distribution="uniform"
+            ),
+        )
         self.batch_norm2 = tf.keras.layers.BatchNormalization()
-        self.dropout2 = tf.keras.layers.Dropout(0.5)
+        self.dropout2 = tf.keras.layers.Dropout(0.3)
         self.dense3 = tf.keras.layers.Dense(
-            5, activation=activation_name, kernel_initializer="he_normal"
+            5,
+            activation=activation_name,
+            kernel_initializer=tf.keras.initializers.VarianceScaling(
+                distribution="untruncated_normal"
+            ),
         )
 
         self.activation = activation_name
